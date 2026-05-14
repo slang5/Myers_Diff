@@ -32,7 +32,8 @@ def read_pdf(file_path, uuid_ref):
 
     name_file = file_path.split("\\")[-1].split(".")[0]
     base_name = f'PDF/{name_file}'
-    store_to_txt(parsing_clean_txt(text), generate_unique_filename(base_name, "txt", uuid_ref))
+    text = parsing_clean_txt(text)
+    store_to_txt(text, generate_unique_filename(base_name, "txt", uuid_ref))
 
     return text
 
@@ -49,7 +50,8 @@ def read_docx(file_path, uuid_ref):
 
     name_file = file_path.split("\\")[-1].split(".")[0]
     base_name = f'DOCX/{name_file}'
-    store_to_txt(parsing_clean_txt(text), generate_unique_filename(base_name, "txt", uuid_ref))
+    text = parsing_clean_txt(text)
+    store_to_txt(text, generate_unique_filename(base_name, "txt", uuid_ref))
 
     return text
 
@@ -63,7 +65,8 @@ def read_txt(file_path, uuid_ref):
     
     name_file = file_path.split("\\")[-1].split(".")[0]
     base_name = f'TXT/{name_file}'
-    store_to_txt(parsing_clean_txt(text), generate_unique_filename(base_name, "txt", uuid_ref))
+    text = parsing_clean_txt(text)
+    store_to_txt(text, generate_unique_filename(base_name, "txt", uuid_ref))
 
     return text
 
