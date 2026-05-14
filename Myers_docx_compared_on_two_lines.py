@@ -72,12 +72,10 @@ BLACK = RGBColor.from_string("000000")
 GREY = RGBColor.from_string("808080")
 TABLE_STYLE = "Table Grid"
 
-
 def _rgb(hex_value: str) -> RGBColor:
     """Convert a hex string like 'C00000' into a Word RGB color."""
 
     return RGBColor.from_string(hex_value)
-
 
 def _set_run_fill(run, fill_hex: str | None) -> None:
     """Apply a custom background fill to a Word run."""
@@ -117,7 +115,6 @@ def _style_run_mono(
         fill_hex = DIFF_RENDER_THEME["replace"]["fill_color"]
     _set_run_fill(run, fill_hex)
 
-
 def _add_run_mono(
     paragraph,
     text: str,
@@ -144,7 +141,6 @@ def _add_vertical_diff_header(document: Any, result: DiffOutput, title: str) -> 
 
     note = document.add_paragraph()
     _add_run_mono(note, "Vertical diff view", color=GREY, bold=True)
-
 
 def _write_vertical_line(
     document: Any,
@@ -199,58 +195,104 @@ def _render_vertical_insert_block(document: Any, block: DiffChange) -> None:
         _write_vertical_line(document, number=line.number, text=line.text, kind="insert")
 
 
-def _render_vertical_replace_block(document: Any, token_diff: ReplaceTokenDiff) -> None:
-    """Render a replace block showing intra-line changes."""
+def _format_line_number_label(lines: list[Any]) -> str:
+    """Format the original line number or line range for a replace block."""
 
-    # We need to reconstruct the lines based on the token edits.
-    # A single ReplaceTokenDiff covers the whole block of potentially multiple old and new lines.
+    if not lines:
+        return ""
 
-    # 1. Gather all tokens for the "old" side (delete + equal)
-    old_paragraphs = []
-    current_old_p = document.add_paragraph()
-    _add_run_mono(current_old_p, "- ", color=RED, bold=DIFF_RENDER_THEME["delete"]["bold"], fill_hex=DIFF_RENDER_THEME["delete"]["fill_color"])
-    old_paragraphs.append(current_old_p)
-    
+    start = lines[0].number
+    end = lines[-1].number
+    if start == end:
+        return f"{start:>4} "
+
+    return f"{start:>4}-{end} "
+
+
+def _add_replace_line_number(paragraph, lines: list[Any]) -> None:
+    """Show the source line number for the replace side we are rendering."""
+
+    label = _format_line_number_label(lines)
+    if label:
+        _add_run_mono(
+            paragraph,
+            label,
+            color=_rgb(DIFF_RENDER_THEME["line_number_color"]),
+            bold=DIFF_RENDER_THEME["line_number_bold"],
+        )
+
+
+def _render_replace_token_side(paragraph, token_diff: ReplaceTokenDiff, *, side: str) -> None:
+    """Render only the token edits that belong on one side of a replace block.
+
+    The block tells us where the substitution lives; the token edit type decides
+    the actual styling. Unchanged tokens stay plain so they do not add visual noise.
+    """
+
+    if side not in {"old", "new"}:
+        raise ValueError(f"Unsupported replace side: {side}")
+
     for edit in token_diff.token_diff.edits:
-        if edit.type in ("equal", "delete") and edit.old_line is not None:
-            text = edit.old_line.text
-            # split text on newlines to handle multi-line token blocks
-            parts = text.split("\n")
-            for i, part in enumerate(parts):
-                if part:
-                    color = RED if edit.type == "delete" else _rgb(DIFF_RENDER_THEME["replace"]["font_color"])
-                    fill = DIFF_RENDER_THEME["delete"]["fill_color"] if edit.type == "delete" else DIFF_RENDER_THEME["replace"]["fill_color"]
-                    _add_run_mono(current_old_p, part, color=color, bold=True, fill_hex=fill)
-                if i < len(parts) - 1:
-                    current_old_p = document.add_paragraph()
-                    _add_run_mono(current_old_p, "- ", color=RED, bold=DIFF_RENDER_THEME["delete"]["bold"], fill_hex=DIFF_RENDER_THEME["delete"]["fill_color"])
-                    old_paragraphs.append(current_old_p)
+        if side == "old":
+            if edit.type == "equal" and edit.old_line is not None:
+                _add_run_mono(paragraph, edit.old_line.text, color=BLACK)
+            elif edit.type == "delete" and edit.old_line is not None:
+                _add_run_mono(
+                    paragraph,
+                    edit.old_line.text,
+                    color=RED,
+                    bold=True,
+                    fill_hex=DIFF_RENDER_THEME["delete"]["fill_color"],
+                )
+        else:
+            if edit.type == "equal" and edit.new_line is not None:
+                _add_run_mono(paragraph, edit.new_line.text, color=BLACK)
+            elif edit.type == "insert" and edit.new_line is not None:
+                _add_run_mono(
+                    paragraph,
+                    edit.new_line.text,
+                    color=GREEN,
+                    bold=True,
+                    fill_hex=DIFF_RENDER_THEME["insert"]["fill_color"],
+                )
 
-    # 2. Gather all tokens for the "new" side (insert + equal)
-    new_paragraphs = []
-    current_new_p = document.add_paragraph()
-    _add_run_mono(current_new_p, "+ ", color=GREEN, bold=DIFF_RENDER_THEME["insert"]["bold"], fill_hex=DIFF_RENDER_THEME["insert"]["fill_color"])
-    new_paragraphs.append(current_new_p)
 
-    for edit in token_diff.token_diff.edits:
-        if edit.type in ("equal", "insert") and edit.new_line is not None:
-            text = edit.new_line.text
-            parts = text.split("\n")
-            for i, part in enumerate(parts):
-                if part:
-                    color = GREEN if edit.type == "insert" else _rgb(DIFF_RENDER_THEME["replace"]["font_color"])
-                    fill = DIFF_RENDER_THEME["insert"]["fill_color"] if edit.type == "insert" else DIFF_RENDER_THEME["replace"]["fill_color"]
-                    _add_run_mono(current_new_p, part, color=color, bold=True, fill_hex=fill)
-                if i < len(parts) - 1:
-                    current_new_p = document.add_paragraph()
-                    _add_run_mono(current_new_p, "+ ", color=GREEN, bold=DIFF_RENDER_THEME["insert"]["bold"], fill_hex=DIFF_RENDER_THEME["insert"]["fill_color"])
-                    new_paragraphs.append(current_new_p)
+def _render_vertical_replace_block(document: Any, replace_diff: ReplaceTokenDiff) -> None:
+    """Render a replace block as two stacked intraline views.
+
+    Each side keeps its original line numbers, and only the changed tokens get
+    replacement styling. Equal tokens stay neutral black.
+    """
+
+    block = replace_diff.block
+
+    old_paragraph = document.add_paragraph()
+    _add_replace_line_number(old_paragraph, block.old_lines)
+    _add_run_mono(
+        old_paragraph,
+        "- ",
+        color=RED,
+        bold=DIFF_RENDER_THEME["delete"]["bold"],
+        fill_hex=DIFF_RENDER_THEME["delete"]["fill_color"],
+    )
+    _render_replace_token_side(old_paragraph, replace_diff, side="old")
+
+    new_paragraph = document.add_paragraph()
+    _add_replace_line_number(new_paragraph, block.new_lines)
+    _add_run_mono(
+        new_paragraph,
+        "+ ",
+        color=GREEN,
+        bold=DIFF_RENDER_THEME["insert"]["bold"],
+        fill_hex=DIFF_RENDER_THEME["insert"]["fill_color"],
+    )
+    _render_replace_token_side(new_paragraph, replace_diff, side="new")
 
 
 def _build_vertical_diff(document: Any, result: DiffOutput) -> None:
     """Render the diff as stacked lines instead of a 4-column table."""
 
-    replace_token_diffs = iter(_iter_replace_token_diffs(result))
+    replace_token_diffs = iter(build_replace_token_diffs(result))
 
     for block in result.change_blocks:
         if block.type == "equal":
@@ -292,6 +334,9 @@ def save_diff_docx(result: DiffOutput, output_path: str | Path, *, title: str = 
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     document = build_diff_document(result, title=title)
+    # ensure the text is using the right front color, type and size before saving
+    document.styles['Normal'].font.name = DIFF_RENDER_THEME["font_name"]
+    document.styles['Normal'].font.size = Pt(DIFF_RENDER_THEME["font_size_pt"])
     document.save(str(path))
     return path
 
