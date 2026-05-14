@@ -25,6 +25,12 @@ def parsing_clean_txt(txt:str):
     # Add new line after each sentence-ending punctuation (., !, ?) followed by a space and an uppercase letter (indicating the start of a new sentence)
     cleaned_text = re.sub(r'([.!?])\s+(?=[A-Z])', r'\1\n', cleaned_text)
 
+    # Add a space when there is a lowercase letter or a digit followed by an uppercase letter (indicating the start of a new sentence without punctuation)
+    cleaned_text = re.sub(r'([a-z0-9])(?=[A-Z])', r'\1 ', cleaned_text)
+
+    # add new line after each bullet point ('-', '*', '•') that is between (letter, digit, or closing parenthesis) and a space
+    cleaned_text = re.sub(r'(?<=[a-zA-Z0-9\)])\s*([-*•])\s+', r'\n\1 ', cleaned_text)
+
     # replace characters with accents with their non-accented counterparts
     cleaned_text = unidecode(cleaned_text)
     duration = time.time() - start_time
