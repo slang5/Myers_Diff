@@ -346,7 +346,7 @@ def save_diff_docx_from_text(
     new_text: str,
     output_path: str | Path,
     *,
-    title: str = "Myers Diff Output",
+    title: str = "Myers Diff Output on 2 lines",
 ) -> Path:
     """Compute the diff first, then save it as a .docx file."""
 
