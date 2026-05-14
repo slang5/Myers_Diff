@@ -1,0 +1,7 @@
+Z_Draft/*
+.venv/*
+.vscode/*
+__pycache__/*
+test_env/*
+Conversion/*
+Compare/*
