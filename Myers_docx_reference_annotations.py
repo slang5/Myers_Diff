@@ -507,17 +507,3 @@ def save_reference_annotated_docx_from_text(
 
     result = compute_diff(reference_text, modified_text)
     return save_reference_annotated_docx(result, output_path, title=title)
-
-
-if __name__ == "__main__":
-    # Keep the example small so the generated document is easy to inspect.
-    base_path = Path(__file__).parent / "test_env"
-    reference_file = base_path / "Ref_doc" / "Doc1.txt"
-    modified_file = base_path / "Modified_doc" / "Doc1.txt"
-
-    output_file = save_reference_annotated_docx_from_text(
-        reference_file.read_text(),
-        modified_file.read_text(),
-        "myers_reference_annotated_output.docx",
-    )
-    print(f"Saved DOCX output to {output_file}")

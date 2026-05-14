@@ -1,6 +1,5 @@
-pandas
-numpy
 Rich
 python-docx
 pypdf
 unidecode
+tk
