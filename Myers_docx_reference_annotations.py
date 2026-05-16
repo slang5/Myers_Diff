@@ -72,7 +72,6 @@ GREY = RGBColor.from_string("808080")
 # Keep same-type token runs bounded so long boilerplate does not collapse into
 # one giant annotation span.
 MAX_COALESCED_SEGMENT_CHARS = 96
-SEMANTIC_BREAK_TOKENS = ("|", ":", ";", "/", "(", ")", "[", "]", "{", "}")
 
 
 def _rgb(hex_value: str) -> RGBColor:
@@ -265,12 +264,6 @@ def _append_token_text(paragraph, text: str, *, color: RGBColor | None = None, f
         _add_run(paragraph, text, color=color, fill_hex=fill_hex)
 
 
-def _has_semantic_break(text: str) -> bool:
-    """Return True when a token segment looks like a field boundary."""
-
-    return any(marker in text for marker in SEMANTIC_BREAK_TOKENS)
-
-
 def _coalesce_token_edits(edits) -> list[tuple[str, str]]:
     """Merge adjacent token edits that share the same type.
 
@@ -296,14 +289,11 @@ def _coalesce_token_edits(edits) -> list[tuple[str, str]]:
         if segments and segments[-1][0] == segment_type:
             previous_type, previous_text = segments[-1]
 
-            # Keep same-type change chunks short and stop at field-like anchors.
+            # Keep same-type change chunks short so long boilerplate does not
+            # collapse into one giant annotation span.
             should_merge = True
             if segment_type in {"delete", "insert"}:
-                should_merge = (
-                    len(previous_text) + len(segment_text) <= MAX_COALESCED_SEGMENT_CHARS
-                    and not _has_semantic_break(previous_text)
-                    and not _has_semantic_break(segment_text)
-                )
+                should_merge = len(previous_text) + len(segment_text) <= MAX_COALESCED_SEGMENT_CHARS
 
             if should_merge:
                 segments[-1] = (previous_type, previous_text + segment_text)
